@@ -59,7 +59,8 @@ def get_cert(cert):
 
 	(sn, valid_after, valid_before) = struct.unpack(CERT_STRUCT_FORMAT, raw[:str_size])
 	pub = raw[str_size:]
-	if epoch_now < valid_after or epoch_now >= valid_before:
+	now = int(time.time())
+	if now < valid_after or now >= valid_before:
 		print("Ceritifcate %s is not valid yet or has expired" % cert)
 		sys.exit(1)
 
