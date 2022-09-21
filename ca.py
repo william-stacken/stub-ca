@@ -159,7 +159,7 @@ def verify_cert(cert, pca_cert, cert_tbs, cert_sig, pca_pub_key):
 
 if len(sys.argv) < 3:
 	print("Usage: python3 %s [bit-size] [command] [args]" % sys.argv[0]);
-	print("\twhere [bit-size] is either 256, 384, or 512.");
+	print("\twhere [bit-size] is either 256, 384, or 521.");
 	print("Commands:")
 	print("\tcreate")
 	print("\t\tCreates a CA certificate if it does not already")
@@ -170,8 +170,8 @@ if len(sys.argv) < 3:
 	print("\t\tto stdout.")
 	sys.exit(1)
 
-if sys.argv[1] != "256" and sys.argv[1] != "384" and sys.argv[1] != "512":
-	print("Unknown key size '%s', must be one of 256, 384, or 512." % sys.argv[1])
+if sys.argv[1] != "256" and sys.argv[1] != "384" and sys.argv[1] != "521":
+	print("Unknown key size '%s', must be one of 256, 384, or 521." % sys.argv[1])
 	sys.exit(1)
 
 key_size = int(sys.argv[1])

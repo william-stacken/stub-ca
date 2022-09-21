@@ -16,7 +16,7 @@ Note that revocation is not supported by this CA.
 
 Usage:
 `python3 ca.py [bit-size] [command] [args]`
-where `[bit-size]` is either 256, 384, or 512 and `[command]` is one of the following:
+where `[bit-size]` is either 256, 384, or 521 (it's not a typo for 512!) and `[command]` is one of the following:
 - `create`: Creates a CA certificate if it does not already exist, and issues a new certificate with the next serial number.
 - `show [cert-path]`: Decodes and prints the certificate at `[cert-path]` to stdout.
 
