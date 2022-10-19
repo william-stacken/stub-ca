@@ -214,7 +214,7 @@ if not os.path.exists(pca_cert) and not os.path.exists(pca_priv_key) and not os.
 	make_cert(ec, pca_cert, pca_priv_key, None, sn, valid_after, valid_before, pca_sig)
 # Open PCA if it exists
 elif os.path.exists(pca_cert) and os.path.exists(pca_priv_key) and os.path.exists(pca_sn):
-	(sn, valid_after, valid_before, pca_pub) = get_cert(pca_cert)
+	(sn, valid_after, valid_before, pca_pub, _) = get_cert(pca_cert)
 	sn = sn_get(pca_sn)
 else:
 	print("Could not update PCA due to one of %s, %s, or %s not being present" % (pca_cert, pca_priv_key, pca_sn))
