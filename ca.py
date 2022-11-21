@@ -161,10 +161,11 @@ if len(sys.argv) < 3:
 	print("Usage: python3 %s [bit-size] [command] [args]" % sys.argv[0]);
 	print("\twhere [bit-size] is either 256, 384, or 521.");
 	print("Commands:")
-	print("\tcreate")
+	print("\tcreate [lifetime]")
 	print("\t\tCreates a CA certificate if it does not already")
 	print("\t\texist, and issues a new certificate with the next")
-	print("\t\tserial number.")
+	print("\t\tserial number, valid from the current local time")
+	print("\t\tto [lifetime] seconds in the future.")
 	print("\tshow [cert-path]")
 	print("\t\tDecodes and prints the certificate at [cert-path]")
 	print("\t\tto stdout.")
@@ -197,14 +198,30 @@ elif sys.argv[2] != "create":
 	print("Unknown command \"%s\"." % sys.argv[2])
 	sys.exit(1)
 
+if len(sys.argv) < 4:
+	print("\"create\" command given without a [lifetime]. Using 24 h by default.")
+else:
+	try:
+		PC_VALID_DUR = int(sys.argv[3])
+	except ValueError:
+		print("\"create\" command given with invalid [lifetime]: '%s'." % sys.argv[3])
+		exit(1)
+	if PC_VALID_DUR < 1:
+		print("\"create\" command given with [lifetime] of less than 1 second is not allowed.")
+		exit(1)
+
+epoch_now = int(time.time())
+sn = 0
+
+if epoch_now + PC_VALID_DUR > 4294967295: # Max value possible in a 32-bit timestamp
+	print("\"create\" command given with too large [lifetime]: %d." % PC_VALID_DUR)
+	exit(1)
+
 pca_cert = "%s-%d.%s" % (PCA_NAME, key_size, CERT_EXT)
 pca_pub_key = "%s-%d.%s" % (PCA_NAME, key_size, PUB_KEY_EXT)
 pca_priv_key = "%s-%d.%s" % (PCA_NAME, key_size, PRIV_KEY_EXT)
 pca_sn = "%s-%d.%s" % (PCA_NAME, key_size, SERIAL_NUMBER_EXT)
 pca_sig = "%s-%d.%s" % (PCA_NAME, key_size, SIGNATURE_EXT)
-
-epoch_now = int(time.time())
-sn = 0
 
 # Create PCA if it does not exist
 if not os.path.exists(pca_cert) and not os.path.exists(pca_priv_key) and not os.path.exists(pca_sn):
@@ -212,6 +229,7 @@ if not os.path.exists(pca_cert) and not os.path.exists(pca_priv_key) and not os.
 	valid_after = epoch_now
 	valid_before = valid_after + PCA_VALID_DUR
 	make_cert(ec, pca_cert, pca_priv_key, None, sn, valid_after, valid_before, pca_sig)
+	print("Successfully created new PCA certificate at %s" % pca_cert)
 # Open PCA if it exists
 elif os.path.exists(pca_cert) and os.path.exists(pca_priv_key) and os.path.exists(pca_sn):
 	(sn, valid_after, valid_before, pca_pub, _) = get_cert(pca_cert)
@@ -231,4 +249,6 @@ pseudo_tbs = "%s-%d-%08x.%s" % (PC_NAME, key_size, sn, TBS_EXT)
 make_cert(ec, pseudo_cert, pseudo_priv_key, pca_priv_key, sn, valid_after, valid_before, pseudo_signature)
 verify_cert(pseudo_cert, pca_cert, pseudo_tbs, pseudo_signature, pca_pub_key)
 sn_update(pca_sn)
+
+print("Successfully created new PC at %s" % pseudo_cert)
 
