@@ -17,6 +17,7 @@ PC_NAME = "pc"
 
 PCA_VALID_DUR = 60 * 60 * 24 * 365 * 10 # 10 years
 PC_VALID_DUR = 60 * 60 * 24 # 1 day
+PC_VALID_OFFSET = 0 # 0 seconds from now
 
 # Little endian with 8-byte serial number, 4-byte "valid after" timestamp, 4-byte "valid before" timestamp,
 # and 2-byte public key size.
@@ -114,7 +115,7 @@ def get_cert(cert):
 
 	return (sn, valid_after, valid_before, pub, sig)
 
-def verify_cert(cert, pca_cert, cert_tbs, cert_sig, pca_pub_key):
+def verify_cert(cert, pca_cert, cert_tbs, cert_sig, pca_pub_key, skip_timestamps=False):
 	"""Verify that a certificate is valid and signed by the given CA
 
 	Parameters
@@ -129,11 +130,13 @@ def verify_cert(cert, pca_cert, cert_tbs, cert_sig, pca_pub_key):
 			Path to temporarily store the certificate's extracted signature.
 		pca_pub_key: str
 			Path to temporarily store the CA certificate's extracted public key.
+		skip_timestamps: bool
+			If True, the validity period of the certificate will be ignored.
 	"""
 	now = int(time.time())
 	(sn, valid_after, valid_before, pub, sig) = get_cert(cert)
 
-	if now < valid_after or now >= valid_before:
+	if not skip_timestamps and (now < valid_after or now >= valid_before):
 		raise Exception("Ceritifcate %s is not valid yet or has expired" % cert)
 
 	with open(cert_tbs, "wb+") as f:
@@ -161,10 +164,12 @@ if len(sys.argv) < 3:
 	print("Usage: python3 %s [bit-size] [command] [args]" % sys.argv[0]);
 	print("\twhere [bit-size] is either 256, 384, or 521.");
 	print("Commands:")
-	print("\tcreate")
+	print("\tcreate [lifetime] [valid_start]")
 	print("\t\tCreates a CA certificate if it does not already")
 	print("\t\texist, and issues a new certificate with the next")
-	print("\t\tserial number.")
+	print("\t\tserial number, valid from [valid_start] seconds")
+	print("\t\tfrom the current local time to [lifetime] seconds")
+	print("\t\tafter that.")
 	print("\tshow [cert-path]")
 	print("\t\tDecodes and prints the certificate at [cert-path]")
 	print("\t\tto stdout.")
@@ -197,14 +202,39 @@ elif sys.argv[2] != "create":
 	print("Unknown command \"%s\"." % sys.argv[2])
 	sys.exit(1)
 
+if len(sys.argv) < 5:
+	print("\"create\" command given without a [valid_start]. Using 0 s by default.")
+else:
+	try:
+		PC_VALID_OFFSET = int(sys.argv[4])
+	except ValueError:
+		print("\"create\" command given with invalid [valid_start]: '%s'." % sys.argv[4])
+		exit(1)
+
+if len(sys.argv) < 4:
+	print("\"create\" command given without a [lifetime]. Using 24 h by default.")
+else:
+	try:
+		PC_VALID_DUR = int(sys.argv[3])
+	except ValueError:
+		print("\"create\" command given with invalid [lifetime]: '%s'." % sys.argv[3])
+		exit(1)
+	if PC_VALID_DUR < 1:
+		print("\"create\" command given with [lifetime] of less than 1 second is not allowed.")
+		exit(1)
+
+epoch_now = int(time.time()) + PC_VALID_OFFSET
+sn = 0
+
+if epoch_now + PC_VALID_DUR > 4294967295: # Max value possible in a 32-bit timestamp
+	print("\"create\" command given with too large [lifetime] (%d) or [valid_start] (%d)." % (PC_VALID_DUR, PC_VALID_OFFSET))
+	exit(1)
+
 pca_cert = "%s-%d.%s" % (PCA_NAME, key_size, CERT_EXT)
 pca_pub_key = "%s-%d.%s" % (PCA_NAME, key_size, PUB_KEY_EXT)
 pca_priv_key = "%s-%d.%s" % (PCA_NAME, key_size, PRIV_KEY_EXT)
 pca_sn = "%s-%d.%s" % (PCA_NAME, key_size, SERIAL_NUMBER_EXT)
 pca_sig = "%s-%d.%s" % (PCA_NAME, key_size, SIGNATURE_EXT)
-
-epoch_now = int(time.time())
-sn = 0
 
 # Create PCA if it does not exist
 if not os.path.exists(pca_cert) and not os.path.exists(pca_priv_key) and not os.path.exists(pca_sn):
@@ -212,6 +242,7 @@ if not os.path.exists(pca_cert) and not os.path.exists(pca_priv_key) and not os.
 	valid_after = epoch_now
 	valid_before = valid_after + PCA_VALID_DUR
 	make_cert(ec, pca_cert, pca_priv_key, None, sn, valid_after, valid_before, pca_sig)
+	print("Successfully created new PCA certificate at %s" % pca_cert)
 # Open PCA if it exists
 elif os.path.exists(pca_cert) and os.path.exists(pca_priv_key) and os.path.exists(pca_sn):
 	(sn, valid_after, valid_before, pca_pub, _) = get_cert(pca_cert)
@@ -229,6 +260,8 @@ pseudo_priv_key = "%s-%d-%08x.%s" % (PC_NAME, key_size, sn, PRIV_KEY_EXT)
 pseudo_tbs = "%s-%d-%08x.%s" % (PC_NAME, key_size, sn, TBS_EXT)
 
 make_cert(ec, pseudo_cert, pseudo_priv_key, pca_priv_key, sn, valid_after, valid_before, pseudo_signature)
-verify_cert(pseudo_cert, pca_cert, pseudo_tbs, pseudo_signature, pca_pub_key)
+verify_cert(pseudo_cert, pca_cert, pseudo_tbs, pseudo_signature, pca_pub_key, skip_timestamps=True)
 sn_update(pca_sn)
+
+print("Successfully created new PC at %s" % pseudo_cert)
 
