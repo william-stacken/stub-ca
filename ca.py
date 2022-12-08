@@ -17,7 +17,7 @@ PC_NAME = "pc"
 
 PCA_VALID_DUR = 60 * 60 * 24 * 365 * 10 # 10 years
 PC_VALID_DUR = 60 * 60 * 24 # 1 day
-PC_VALID_OFFSET = 0 # 0 seconds from now
+PC_VALID_START = int(time.time()) # 0 seconds from now
 
 # Little endian with 8-byte serial number, 4-byte "valid after" timestamp, 4-byte "valid before" timestamp,
 # and 2-byte public key size.
@@ -167,9 +167,8 @@ if len(sys.argv) < 3:
 	print("\tcreate [lifetime] [valid_start]")
 	print("\t\tCreates a CA certificate if it does not already")
 	print("\t\texist, and issues a new certificate with the next")
-	print("\t\tserial number, valid from [valid_start] seconds")
-	print("\t\tfrom the current local time to [lifetime] seconds")
-	print("\t\tafter that.")
+	print("\t\tserial number, valid from [valid_start] (unix epoch)")
+	print("\t\tto [lifetime] seconds after that.")
 	print("\tshow [cert-path]")
 	print("\t\tDecodes and prints the certificate at [cert-path]")
 	print("\t\tto stdout.")
@@ -203,10 +202,10 @@ elif sys.argv[2] != "create":
 	sys.exit(1)
 
 if len(sys.argv) < 5:
-	print("\"create\" command given without a [valid_start]. Using 0 s by default.")
+	print("\"create\" command given without a [valid_start]. Using the current time by default.")
 else:
 	try:
-		PC_VALID_OFFSET = int(sys.argv[4])
+		PC_VALID_START = int(sys.argv[4])
 	except ValueError:
 		print("\"create\" command given with invalid [valid_start]: '%s'." % sys.argv[4])
 		exit(1)
@@ -223,11 +222,11 @@ else:
 		print("\"create\" command given with [lifetime] of less than 1 second is not allowed.")
 		exit(1)
 
-epoch_now = int(time.time()) + PC_VALID_OFFSET
+epoch_now = PC_VALID_START
 sn = 0
 
 if epoch_now + PC_VALID_DUR > 4294967295: # Max value possible in a 32-bit timestamp
-	print("\"create\" command given with too large [lifetime] (%d) or [valid_start] (%d)." % (PC_VALID_DUR, PC_VALID_OFFSET))
+	print("\"create\" command given with too large [lifetime] (%d) or [valid_start] (%d)." % (PC_VALID_DUR, PC_VALID_START))
 	exit(1)
 
 pca_cert = "%s-%d.%s" % (PCA_NAME, key_size, CERT_EXT)

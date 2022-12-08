@@ -33,8 +33,8 @@ The `create` command will generate the following CA files (if not already presen
 
 It will also generate a single certificate issued by the CA:
 - `pc-[bit-size]-[serial-no].cert`: The certificate signed by the CA with Valid After set
-                                    to the current time + [valid_start] seconds and
-                                    Valid Before set to current time + [valid_start] + [lifetime]
+                                    to [valid_start] seconds (unix epoch) and
+                                    Valid Before set to [valid_start] + [lifetime]
                                     seconds. [lifetime] is 24 hours and [valid_start] is
-                                    0 seconds by default. 
+                                    the current unix epoch by default.
 - `pc-[bit-size]-[serial-no].key`: The certificate's private key in plain DER encoding.
